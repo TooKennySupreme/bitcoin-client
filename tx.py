@@ -1,5 +1,17 @@
 import hashlib
 import base64
+import ecdsa
+
+import keyUtils
+
+my_address="mji6tgw9ZnrRAXN49uy8y2AXc7M5BGfxRx"
+hash_utxo="4be05aaad356e4258bbb85818df836137c1246602cbccecf052f34e989a14865"
+
+private_key_base58check="93UexCJHWp59BXxb2YrixM6NEkMxe7omrGz2mPifQGvQjGtDcuz"
+private_key = keyUtils.wifToPrivateKey(private_key_base58check)
+
+recipient_address="n3GNqMveyvaPvUbH469vDRadqpJMPc84JA"
+change_address="mji6tgw9ZnrRAXN49uy8y2AXc7M5BGfxRx"
 
 def pack_int(number, bytes_number): 
     format = "%" + str(2*bytes_number) + "s"
@@ -27,14 +39,14 @@ def pack_transaction(inputs, ouputs):
     for input in inputs:
         content += to_little_endian(input['hash'])
         content += pack_int(input['index'], 4)
-        content += scriptPubKey(address)
+        content += scriptPubKey(input['address'])
         content += "ffffffff"
    
     ## Outputs 
     content += pack_int(len(outputs), 1)
     for output in outputs:
-        content += pack_satoshis_values(value)
-        content += scriptPubKey(address)
+        content += pack_satoshis_values(output['value'])
+        content += scriptPubKey(output['address'])
         content += ""
 
     ## Locktime
@@ -44,16 +56,30 @@ def pack_transaction(inputs, ouputs):
     return (content)
 
 def signed_transaction(inputs, outputs):
-    first_transaction(inputs, outputs)
-    hashed_trans = hashlib.sha256(hashlib.sha256(first_transaction.encode()))
+    first_transaction = pack_transaction(inputs, outputs)
+    hashed_trans = hashlib.sha256(first_transaction.encode()).hexdigest() #first hash
+    hashed_trans = hashlib.sha256(hashed_trans.encode()).hexdigest() #second hash
+
+    sk = ecdsa.SigningKey.from_string(privateKey.decode('hex'), curve=ecdsa.SECP256k1)
+#    sk = ecdsa.SigningKey.from_string(private_key, curve=ecdsa.SECP256k1)
+
+    sig = sk.sign_digest(s256, sigencode=ecdsa.util.sigencode_der) + '\01' # 01 is hashtype
+
+
+    return (sig)
+
 
 inputs = [
-        {'hash' : "HASH", "index" : 0, 'address' : ""}
+        {'hash' : hash_utxo, "index" : 0, 'address' : my_address}
 ]
 
 outputs = [
-    {'address' : "ADDRESS", 'value' : 0}
+    {'address' : recipient_address, 'value' : 10000},
+    {'address' : change_address, 'value' : 145000}
 ]
 
-print(pack_transaction(inputs, outputs))
+
+my_tx = signed_transaction(inputs, outputs)
+
+print(my_tx)
 
